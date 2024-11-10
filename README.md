@@ -377,7 +377,7 @@ El hilo de audio maneja la reproducción de sonidos en segundo plano.
 Se utilizan mutexes (mutex_audio) para sincronizar el acceso a los recursos de audio, garantizando que no haya interferencias entre el hilo principal y el hilo de audio.
 Este enfoque permite una experiencia de usuario más fluida, evitando bloqueos y permitiendo que el juego y el audio se gestionen de forma concurrente.
 
-Complicaciones 
+## Complicaciones 
 Este trabajo me dio muchos problemas.
 A veces, el programa se ejecutaba, pero nada se movía.
 Los audios sonaban con retraso y de manera constante.
