@@ -65,9 +65,8 @@ aquie agregue un power up que e sun triangulo que aumenta la velocidad del juega
 
 ![image](https://github.com/user-attachments/assets/b02b28f7-36eb-4c1f-96d8-eb5f576b7abb)
 
-y al final se agrega para que pueda haber una musica de fondo 
-
-![image](https://github.com/user-attachments/assets/1ac6b1d5-68fb-4a8e-9a4e-df94fb2aa2c3)
+se agrega un sonido que es cunaod el jugador choca con los limite de la pantalla 
+![image](https://github.com/user-attachments/assets/663e5da8-bce5-4a31-8c60-55b7af9ae779)
 
 
 ```c
@@ -79,7 +78,7 @@ y al final se agrega para que pueda haber una musica de fondo
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
-#define MAX_CIRCLES 25 
+#define MAX_CIRCLES 25
 
 typedef struct {
     int x, y;
@@ -110,8 +109,8 @@ Uint32 last_add_time = 0;
 Uint32 speed_boost_end_time = 0;
 bool speed_boost_active = false;
 
-SDL_mutex* mutex_audio; 
-SDL_Thread* audio_thread; 
+SDL_mutex* mutex_audio;
+SDL_Thread* audio_thread;
 
 SDL_AudioDeviceID device_id;
 SDL_AudioSpec wav_spec;
@@ -191,14 +190,14 @@ void increase_difficulty(Uint32 current_time) {
 
 void audio_callback(void* data) {
     while (!game_over) {
-        SDL_LockMutex(mutex_audio); 
+        SDL_LockMutex(mutex_audio);
 
         if (game_over) break;
 
         SDL_QueueAudio(device_id, wav_buffer, wav_length);
         SDL_PauseAudioDevice(device_id, 0);
 
-        SDL_UnlockMutex(mutex_audio); 
+        SDL_UnlockMutex(mutex_audio);
     }
 }
 
@@ -213,7 +212,12 @@ void play_sound(const char* sound_path) {
     SDL_QueueAudio(device_id, wav_buffer, wav_length);
     SDL_PauseAudioDevice(device_id, 0);
 
-    SDL_UnlockMutex(mutex_audio); // Unlock the mutex after playing the sound
+    SDL_UnlockMutex(mutex_audio); 
+}
+
+// New function to play the sound when the player hits the screen limits
+void play_collision_sound() {
+    play_sound("collision_sound.wav");
 }
 
 int main(int argc, char* args[]) {
@@ -237,10 +241,8 @@ int main(int argc, char* args[]) {
         return 1;
     }
 
-    // Initialize mutex for audio
     mutex_audio = SDL_CreateMutex();
 
-    // Create audio thread
     audio_thread = SDL_CreateThread(audio_callback, "AudioThread", NULL);
 
     SDL_Window* window = SDL_CreateWindow("Juego de esquivar", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
@@ -255,7 +257,7 @@ int main(int argc, char* args[]) {
     bool game_running = true;
     SDL_Event event;
 
-    play_sound("start_sound.wav"); 
+    play_sound("start_sound.wav");
 
     while (game_running && !game_over) {
         while (SDL_PollEvent(&event)) {
@@ -264,7 +266,7 @@ int main(int argc, char* args[]) {
             }
             else if (event.type == SDL_KEYDOWN) {
                 if (event.key.keysym.sym == SDLK_a || event.key.keysym.sym == SDLK_d) {
-                    play_sound("move_sound.wav"); 
+                    play_sound("move_sound.wav");
                 }
                 if (event.key.keysym.sym == SDLK_a) player.vel_x = speed_boost_active ? -10 : -5;
                 else if (event.key.keysym.sym == SDLK_d) player.vel_x = speed_boost_active ? 10 : 5;
@@ -275,8 +277,15 @@ int main(int argc, char* args[]) {
         }
 
         player.x += player.vel_x;
-        if (player.x < 0) player.x = 0;
-        if (player.x + player.width > WINDOW_WIDTH) player.x = WINDOW_WIDTH - player.width;
+
+        if (player.x < 0) {
+            player.x = 0;
+            play_collision_sound(); 
+        }
+        if (player.x + player.width > WINDOW_WIDTH) {
+            player.x = WINDOW_WIDTH - player.width;
+            play_collision_sound(); 
+        }
 
         for (int i = 0; i < active_circles; i++) {
             if (circles[i].active) {
@@ -284,7 +293,7 @@ int main(int argc, char* args[]) {
                 if (circles[i].y - circles[i].radius > WINDOW_HEIGHT) initialize_circle(&circles[i]);
                 if (detect_collision(&player, &circles[i])) {
                     game_over = true;
-                    play_sound("lose_sound.wav"); // Play the lose sound
+                    play_sound("lose_sound.wav"); 
                 }
             }
         }
@@ -293,8 +302,8 @@ int main(int argc, char* args[]) {
         if (triangle.y > WINDOW_HEIGHT) initialize_triangle(&triangle);
         if (detect_collision_triangle(&player, &triangle)) {
             speed_boost_active = true;
-            speed_boost_end_time = SDL_GetTicks() + 5000; // Speed boost lasts for 5 seconds
-            play_sound("speed_boost_sound.wav"); // Play the speed boost sound
+            speed_boost_end_time = SDL_GetTicks() + 5000; 
+            play_sound("speed_boost_sound.wav"); 
         }
 
         if (speed_boost_active && SDL_GetTicks() > speed_boost_end_time) {
@@ -304,15 +313,14 @@ int main(int argc, char* args[]) {
         Uint32 current_time = SDL_GetTicks();
         increase_difficulty(current_time);
 
-        // Render game
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
+        // Draw everything
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
         SDL_Rect player_rect = { player.x, player.y, player.width, player.height };
         SDL_RenderFillRect(renderer, &player_rect);
 
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         for (int i = 0; i < active_circles; i++) {
             if (circles[i].active) {
                 draw_circle(renderer, circles[i].x, circles[i].y, circles[i].radius);
@@ -323,15 +331,13 @@ int main(int argc, char* args[]) {
 
         SDL_RenderPresent(renderer);
 
-        SDL_Delay(16); // 60 FPS
+        SDL_Delay(16);
     }
 
-    // Clean up
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    SDL_CloseAudioDevice(device_id);
-    SDL_DestroyMutex(mutex_audio);
 
+    SDL_CloseAudioDevice(device_id);
     SDL_Quit();
 
     return 0;
